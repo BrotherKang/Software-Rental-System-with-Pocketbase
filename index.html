@@ -1,0 +1,1675 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>軟體租借系統</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pocketbase/0.19.0/pocketbase.umd.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft JhengHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .login-section {
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(45deg, #f093fb, #f5576c);
+            color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(45deg, #4facfe, #00f2fe);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .calendar-container {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .calendar-nav {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.3s ease;
+        }
+
+        .calendar-nav:hover {
+            transform: scale(1.1);
+        }
+
+        .calendar-title {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .calendar {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+            background: #ecf0f1;
+            border-radius: 10px;
+            padding: 10px;
+        }
+
+        .calendar-day {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            min-height: 60px;
+            flex-direction: column;
+            font-size: 14px;
+        }
+
+        .calendar-day:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .calendar-day.weekend {
+            background: #f8f9fa;
+            color: #6c757d;
+        }
+
+        .calendar-day.other-month {
+            opacity: 0.3;
+        }
+
+        .calendar-day.occupied {
+            color: white;
+            font-weight: bold;
+        }
+
+        .day-number {
+            font-weight: bold;
+        }
+
+        .unit-name {
+            font-size: 10px;
+            margin-top: 2px;
+            text-align: center;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background: white;
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: modalSlideIn 0.3s ease;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 1.5em;
+            color: #2c3e50;
+        }
+
+        .close {
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #aaa;
+            transition: color 0.3s ease;
+        }
+
+        .close:hover {
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ecf0f1;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
+        }
+
+        .export-section {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+        }
+
+        .export-form {
+            display: flex;
+            gap: 15px;
+            align-items: end;
+            flex-wrap: wrap;
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 10px;
+            color: white;
+            font-weight: bold;
+            z-index: 2000;
+            animation: slideInRight 0.3s ease;
+        }
+
+        .notification.success {
+            background: linear-gradient(45deg, #4facfe, #00f2fe);
+        }
+
+        .notification.error {
+            background: linear-gradient(45deg, #f093fb, #f5576c);
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(100px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .day-header {
+            background: #667eea;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            font-weight: bold;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .reservations-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+
+        .reservation-item {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            position: relative;
+        }
+
+        .reservation-actions {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            gap: 5px;
+        }
+
+        .btn-small {
+            padding: 5px 10px;
+            font-size: 12px;
+            border-radius: 15px;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-left: auto;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .timezone-info {
+            background: #e8f4f8;
+            border: 1px solid #bee5eb;
+            border-radius: 10px;
+            padding: 10px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #0c5460;
+        }
+
+        .debug-info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            padding: 10px;
+            margin-bottom: 20px;
+            font-size: 12px;
+            color: #666;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🖥️ 軟體租借系統</h1>
+        
+        <!-- 登入區域 -->
+        <div id="loginSection" class="login-section">
+            <h2 style="text-align: center; margin-bottom: 20px;">系統登入</h2>
+            
+            <!-- 登入表單 -->
+            <form id="loginForm">
+                <div class="form-group">
+                    <label>電子郵件</label>
+                    <input type="email" id="loginEmail" required>
+                </div>
+                <div class="form-group">
+                    <label>密碼</label>
+                    <input type="password" id="loginPassword" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-bottom: 10px;">
+                    <span id="loginBtnText">登入</span>
+                    <span id="loginLoader" class="loading hidden"></span>
+                </button>
+            </form>
+            
+            <div style="text-align: center; margin: 20px 0; color: #666;">
+                還沒有帳號？
+                <a href="#" onclick="showRegisterForm()" style="color: #667eea; text-decoration: none;">註冊新帳號</a>
+            </div>
+            
+            <!-- 註冊表單 -->
+            <form id="registerForm" class="hidden">
+                <h3 style="text-align: center; margin-bottom: 20px; color: #2c3e50;">註冊新帳號</h3>
+                <div class="form-group">
+                    <label>電子郵件</label>
+                    <input type="email" id="registerEmail" required>
+                </div>
+                <div class="form-group">
+                    <label>密碼</label>
+                    <input type="password" id="registerPassword" minlength="8" required>
+                </div>
+                <div class="form-group">
+                    <label>確認密碼</label>
+                    <input type="password" id="registerPasswordConfirm" minlength="8" required>
+                </div>
+                <div class="form-group">
+                    <label>姓名</label>
+                    <input type="text" id="registerName" required>
+                </div>
+                <button type="submit" class="btn btn-success" style="width: 100%; margin-bottom: 10px;">
+                    <span id="registerBtnText">註冊</span>
+                    <span id="registerLoader" class="loading hidden"></span>
+                </button>
+                <button type="button" class="btn btn-secondary" style="width: 100%;" onclick="showLoginForm()">
+                    返回登入
+                </button>
+            </form>
+        </div>
+
+        <!-- 主要系統區域 -->
+        <div id="mainSystem" class="hidden">
+            <div class="timezone-info">
+                ℹ️ 系統時區已設定為台北時間 (UTC+8)，所有日期顯示均為本地時間
+            </div>
+            
+            <!-- Debug 資訊 -->
+            <div id="debugInfo" class="debug-info hidden">
+                <div id="debugContent"></div>
+            </div>
+            
+            <div class="controls">
+                <button class="btn btn-primary" onclick="openReservationModal()">📅 新增預約</button>
+                <button class="btn btn-secondary" onclick="showReservationsList()">📋 查看所有預約</button>
+                <button class="btn btn-success" onclick="openExportModal()">📊 匯出報表</button>
+                <button class="btn btn-secondary btn-small" onclick="runDiagnostics()">🔧 系統診斷</button>
+                <button class="btn btn-secondary btn-small" onclick="toggleDebugInfo()">🐛 除錯資訊</button>
+                <div class="user-info">
+                    <span id="userEmail"></span>
+                    <button class="btn btn-danger btn-small" onclick="logout()">登出</button>
+                </div>
+            </div>
+
+            <div class="legend" id="legend">
+                <span style="font-weight: bold;">圖例：</span>
+            </div>
+
+            <div class="calendar-container">
+                <div class="calendar-header">
+                    <button class="calendar-nav" onclick="previousMonth()">‹</button>
+                    <div class="calendar-title" id="calendar-title"></div>
+                    <button class="calendar-nav" onclick="nextMonth()">›</button>
+                </div>
+                <div class="calendar" id="calendar"></div>
+            </div>
+
+            <div class="export-section">
+                <h3>📊 匯出統計報表</h3>
+                <div class="export-form">
+                    <div class="form-group">
+                        <label>起始日期</label>
+                        <input type="date" id="export-start-date">
+                    </div>
+                    <div class="form-group">
+                        <label>結束日期</label>
+                        <input type="date" id="export-end-date">
+                    </div>
+                    <button class="btn btn-success" onclick="exportToCSV()">匯出 CSV</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 預約模態框 -->
+    <div id="reservationModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modal-title">新增預約</h2>
+                <span class="close" onclick="closeModal('reservationModal')">&times;</span>
+            </div>
+            <form id="reservationForm">
+                <div class="form-group">
+                    <label>單位名稱 *</label>
+                    <input type="text" id="unitName" required>
+                </div>
+                <div class="form-group">
+                    <label>專案名稱 *</label>
+                    <input type="text" id="projectName" required>
+                </div>
+                <div class="form-group">
+                    <label>姓名 *</label>
+                    <input type="text" id="contactName" required>
+                </div>
+                <div class="form-group">
+                    <label>連絡電話 *</label>
+                    <input type="tel" id="contactPhone" required>
+                </div>
+                <div class="form-group">
+                    <label>數量 *</label>
+                    <input type="number" id="quantity" min="1" required>
+                </div>
+                <div class="form-group">
+                    <label>預約日期 *</label>
+                    <input type="date" id="startDate" required>
+                </div>
+                <div class="form-group">
+                    <label>預計結束日期 *</label>
+                    <input type="date" id="endDate" required>
+                </div>
+                <div class="form-group">
+                    <label>實際結束日期</label>
+                    <input type="date" id="actualEndDate">
+                </div>
+                <div class="form-group">
+                    <label>狀態</label>
+                    <select id="status">
+                        <option value="active">進行中</option>
+                        <option value="completed">已完成</option>
+                        <option value="cancelled">已取消</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('reservationModal')">取消</button>
+                    <button type="submit" class="btn btn-primary">
+                        <span id="submitBtnText">確認預約</span>
+                        <span id="submitLoader" class="loading hidden"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 預約列表模態框 -->
+    <div id="reservationsListModal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2 class="modal-title">所有預約</h2>
+                <span class="close" onclick="closeModal('reservationsListModal')">&times;</span>
+            </div>
+            <div class="reservations-list" id="reservationsList"></div>
+        </div>
+    </div>
+
+    <!-- 匯出模態框 -->
+    <div id="exportModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">匯出報表</h2>
+                <span class="close" onclick="closeModal('exportModal')">&times;</span>
+            </div>
+            <div class="form-group">
+                <label>起始日期</label>
+                <input type="date" id="modal-export-start-date">
+            </div>
+            <div class="form-group">
+                <label>結束日期</label>
+                <input type="date" id="modal-export-end-date">
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('exportModal')">取消</button>
+                <button type="button" class="btn btn-success" onclick="exportToCSV(true)">匯出 CSV</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // PocketBase 初始化
+        const pb = new PocketBase('http://192.168.200.132:8090');
+        
+        // =================== 時區處理函數 ===================
+        
+        // 將前端的 YYYY-MM-DD 格式轉換為 PocketBase 儲存格式 (ISO Date String)
+        function frontendDateToPocketBase(frontendDateString) {
+            if (!frontendDateString) {
+                updateDebugInfo(`frontendDateToPocketBase: 輸入為空`);
+                return null;
+            }
+            
+            try {
+                const [year, month, day] = frontendDateString.split('-').map(Number);
+                if (isNaN(year) || isNaN(month) || isNaN(day)) {
+                    updateDebugInfo(`frontendDateToPocketBase: 無效日期格式: ${frontendDateString}`);
+                    return null;
+                }
+                const localDate = new Date(year, month - 1, day, 0, 0, 0, 0);
+                const isoString = localDate.toISOString();
+                updateDebugInfo(`frontendDateToPocketBase: ${frontendDateString} → ${isoString}`);
+                return isoString;
+            } catch (error) {
+                updateDebugInfo(`frontendDateToPocketBase 錯誤: ${frontendDateString} - ${error.message}`);
+                return null;
+            }
+        }
+
+        // 將 PocketBase 的 UTC 日期字串轉為前端 YYYY-MM-DD 格式（Asia/Taipei）
+        function pocketBaseToFrontendDate(pocketBaseDateString) {
+            if (!pocketBaseDateString) {
+                updateDebugInfo(`🔄 pocketBaseToFrontendDate: 輸入為空`);
+                return null;
+            }
+            
+            updateDebugInfo(`🔄 pocketBaseToFrontendDate 開始轉換: "${pocketBaseDateString}"`);
+            
+            try {
+                const utcDate = new Date(pocketBaseDateString);
+                if (isNaN(utcDate.getTime())) {
+                    updateDebugInfo(`❌ 日期轉換失敗，無效日期: "${pocketBaseDateString}"`);
+                    return null;
+                }
+                
+                // 使用 toLocaleDateString 轉為 Asia/Taipei 日期
+                const localDateString = utcDate.toLocaleDateString('zh-TW', {
+                    timeZone: 'Asia/Taipei',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                }).replace(/\//g, '-'); // 格式為 YYYY-MM-DD
+                
+                updateDebugInfo(`✅ 日期轉換成功: "${pocketBaseDateString}" → "${localDateString}"`);
+                return localDateString;
+            } catch (error) {
+                updateDebugInfo(`❌ pocketBaseToFrontendDate 錯誤: ${pocketBaseDateString} - ${error.message}`);
+                return null;
+            }
+        }
+
+        // 格式化日期為顯示用（YYYY/MM/DD）
+        function formatDateForDisplay(frontendDateString) {
+            if (!frontendDateString) return '未設定';
+            
+            const [year, month, day] = frontendDateString.split('-');
+            return `${year}/${month}/${day}`;
+        }
+
+        // 比較兩個前端日期字串
+        function compareDates(date1, date2) {
+            if (!date1 || !date2) return 0;
+            return date1.localeCompare(date2);
+        }
+
+        // 檢查日期是否在範圍內
+        function isDateInRange(checkDate, startDate, endDate) {
+            return compareDates(checkDate, startDate) >= 0 && compareDates(checkDate, endDate) <= 0;
+        }
+
+        // 建立本地日期物件（用於日曆計算）
+        function createLocalDate(frontendDateString) {
+            if (!frontendDateString) {
+                updateDebugInfo(`createLocalDate: 日期為空`);
+                return null;
+            }
+            
+            try {
+                const [year, month, day] = frontendDateString.split('-').map(Number);
+                if (isNaN(year) || isNaN(month) || isNaN(day)) {
+                    updateDebugInfo(`createLocalDate 解析失敗: ${frontendDateString}`);
+                    return null;
+                }
+                const localDate = new Date(year, month - 1, day, 0, 0, 0, 0);
+                updateDebugInfo(`createLocalDate: ${frontendDateString} → ${localDate.toISOString()}`);
+                return localDate;
+            } catch (error) {
+                updateDebugInfo(`createLocalDate 錯誤: ${frontendDateString} - ${error.message}`);
+                return null;
+            }
+        }
+
+        // 格式化 Date 物件為前端日期字串
+        function formatDateToString(dateObj) {
+            if (!dateObj || isNaN(dateObj.getTime())) {
+                updateDebugInfo(`formatDateToString: 無效日期物件`);
+                return null;
+            }
+            const year = dateObj.getFullYear();
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+        
+        // =================== Debug 功能 ===================
+        let debugMessages = [];
+        
+        function updateDebugInfo(message) {
+            debugMessages.push(`[${new Date().toLocaleTimeString()}] ${message}`);
+            // 保持最多 50 條記錄
+            if (debugMessages.length > 50) {
+                debugMessages = debugMessages.slice(-50);
+            }
+            
+            const debugContent = document.getElementById('debugContent');
+            if (debugContent) {
+                debugContent.innerHTML = debugMessages.slice(-20).join('<br>');
+            }
+        }
+        
+        function toggleDebugInfo() {
+            const debugInfo = document.getElementById('debugInfo');
+            debugInfo.classList.toggle('hidden');
+        }
+        
+        // =================== 系統變數 ===================
+        let offlineMode = false;
+        let reservations = [];
+        let currentDate = new Date();
+        let currentEditingId = null;
+        
+        // 單位顏色映射
+        const unitColors = {};
+        const colors = [
+            '#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe', '#00f2fe',
+            '#43e97b', '#38f9d7', '#ffecd2', '#fcb69f', '#a8edea', '#fed6e3',
+            '#ff9a9e', '#fecfef', '#fbc2eb', '#a6c1ee'
+        ];
+        let colorIndex = 0;
+
+        // =================== 初始化 ===================
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('頁面載入完成');
+            updateDebugInfo('系統初始化開始');
+            
+            // 測試 PocketBase 連線
+            const isConnected = await testConnection();
+            
+            if (offlineMode) {
+                document.getElementById('userEmail').textContent = '離線模式';
+                showMainSystem();
+                loadReservationsOffline();
+            } else {
+                checkAuthStatus();
+            }
+        });
+
+        // 測試連線
+        async function testConnection() {
+            try {
+                const health = await pb.health.check();
+                console.log('PocketBase 連線正常');
+                updateDebugInfo('PocketBase 連線正常');
+                offlineMode = false;
+                return true;
+            } catch (error) {
+                console.error('PocketBase 連線失敗:', error);
+                updateDebugInfo(`PocketBase 連線失敗: ${error.message}`);
+                offlineMode = true;
+                showNotification('使用離線模式（資料儲存在瀏覽器中）', 'error');
+                return false;
+            }
+        }
+
+        // 檢查登入狀態
+        function checkAuthStatus() {
+            console.log('檢查登入狀態:', pb.authStore.isValid);
+            updateDebugInfo(`登入狀態: ${pb.authStore.isValid ? '已登入' : '未登入'}`);
+            
+            if (pb.authStore.isValid) {
+                showMainSystem();
+                loadReservations();
+            } else {
+                showLoginSection();
+            }
+        }
+
+        // 顯示登入區域
+        function showLoginSection() {
+            document.getElementById('loginSection').classList.remove('hidden');
+            document.getElementById('mainSystem').classList.add('hidden');
+        }
+
+        // 顯示主系統
+        function showMainSystem() {
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('mainSystem').classList.remove('hidden');
+            document.getElementById('userEmail').textContent = pb.authStore.model?.email || '';
+            initCalendar();
+        }
+
+        // =================== 登入功能 ===================
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            updateDebugInfo(`嘗試登入: ${email}`);
+            setLoginLoading(true);
+            
+            try {
+                let authData = null;
+                let loginSuccess = false;
+                
+                // 嘗試管理員登入
+                if (!loginSuccess) {
+                    try {
+                        authData = await pb.collection('_superusers').authWithPassword(email, password);
+                        updateDebugInfo('管理員登入成功');
+                        loginSuccess = true;
+                    } catch (adminError) {
+                        updateDebugInfo(`管理員登入失敗: ${adminError.message}`);
+                    }
+                }
+                
+                // 嘗試一般使用者登入
+                if (!loginSuccess) {
+                    try {
+                        authData = await pb.collection('users').authWithPassword(email, password);
+                        updateDebugInfo('使用者登入成功');
+                        loginSuccess = true;
+                    } catch (userError) {
+                        updateDebugInfo(`使用者登入失敗: ${userError.message}`);
+                        throw userError;
+                    }
+                }
+                
+                if (loginSuccess) {
+                    showNotification('登入成功！');
+                    showMainSystem();
+                    await loadReservations();
+                }
+                
+            } catch (error) {
+                console.error('登入錯誤:', error);
+                updateDebugInfo(`登入錯誤: ${error.message}`);
+                
+                let errorMessage = '登入失敗';
+                if (error.status === 400) {
+                    errorMessage = '帳號或密碼錯誤';
+                } else if (error.status === 0) {
+                    errorMessage = '無法連接到伺服器，請確認 PocketBase 已啟動';
+                } else {
+                    errorMessage = error.message || '請檢查帳號密碼';
+                }
+                
+                showNotification(errorMessage, 'error');
+            } finally {
+                setLoginLoading(false);
+            }
+        });
+
+        // 註冊表單處理
+        document.getElementById('registerForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+            const passwordConfirm = document.getElementById('registerPasswordConfirm').value;
+            const name = document.getElementById('registerName').value;
+            
+            if (password !== passwordConfirm) {
+                showNotification('密碼確認不符！', 'error');
+                return;
+            }
+            
+            setRegisterLoading(true);
+            
+            try {
+                const data = {
+                    email: email,
+                    password: password,
+                    passwordConfirm: passwordConfirm,
+                    name: name
+                };
+                
+                await pb.collection('users').create(data);
+                updateDebugInfo(`註冊成功: ${email}`);
+                showNotification('註冊成功！請登入使用系統。');
+                showLoginForm();
+            } catch (error) {
+                console.error('Register error:', error);
+                updateDebugInfo(`註冊錯誤: ${error.message}`);
+                showNotification('註冊失敗：' + (error.message || '請檢查輸入資料'), 'error');
+            } finally {
+                setRegisterLoading(false);
+            }
+        });
+
+        // 顯示註冊表單
+        function showRegisterForm() {
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('registerForm').classList.remove('hidden');
+        }
+
+        // 顯示登入表單
+        function showLoginForm() {
+            document.getElementById('registerForm').classList.add('hidden');
+            document.getElementById('loginForm').classList.remove('hidden');
+        }
+
+        // 設置載入狀態
+        function setRegisterLoading(loading) {
+            const btnText = document.getElementById('registerBtnText');
+            const loader = document.getElementById('registerLoader');
+            
+            if (loading) {
+                btnText.classList.add('hidden');
+                loader.classList.remove('hidden');
+            } else {
+                btnText.classList.remove('hidden');
+                loader.classList.add('hidden');
+            }
+        }
+
+        function setLoginLoading(loading) {
+            const btnText = document.getElementById('loginBtnText');
+            const loader = document.getElementById('loginLoader');
+            
+            if (loading) {
+                btnText.classList.add('hidden');
+                loader.classList.remove('hidden');
+            } else {
+                btnText.classList.remove('hidden');
+                loader.classList.add('hidden');
+            }
+        }
+
+        // 登出
+        function logout() {
+            pb.authStore.clear();
+            showLoginSection();
+            reservations = [];
+            updateDebugInfo('使用者登出');
+            showNotification('已登出');
+        }
+
+        // =================== 資料載入 ===================
+        async function loadReservations() {
+            if (offlineMode) {
+                loadReservationsOffline();
+                return;
+            }
+            
+            try {
+                updateDebugInfo('=== 🔄 開始載入預約資料 ===');
+                const records = await pb.collection('reservations').getFullList({
+                    sort: 'start_date',
+                    filter: 'status != "cancelled"' // 僅載入非取消預約
+                });
+                
+                updateDebugInfo(`📥 從資料庫載入了 ${records.length} 筆原始資料`);
+                
+                reservations = [];
+                
+                for (let i = 0; i < records.length; i++) {
+                    const record = records[i];
+                    updateDebugInfo(`=== 處理第 ${i + 1} 筆資料 ===`);
+                    updateDebugInfo(`📋 原始資料 ID: ${record.id}`);
+                    updateDebugInfo(`📅 原始 start_date: "${record.start_date}"`);
+                    updateDebugInfo(`📅 原始 end_date: "${record.end_date}"`);
+                    if (record.actual_end_date) {
+                        updateDebugInfo(`📅 原始 actual_end_date: "${record.actual_end_date}"`);
+                    }
+                    
+                    const convertedStart = pocketBaseToFrontendDate(record.start_date);
+                    const convertedEnd = pocketBaseToFrontendDate(record.end_date);
+                    const convertedActual = record.actual_end_date ? pocketBaseToFrontendDate(record.actual_end_date) : null;
+                    
+                    if (!convertedStart || !convertedEnd) {
+                        updateDebugInfo(`⚠️ 警告：預約 ${record.id} 日期轉換失敗，跳過此筆資料`);
+                        continue;
+                    }
+                    
+                    const converted = {
+                        id: record.id,
+                        unitName: record.unit_name,
+                        projectName: record.project_name,
+                        contactName: record.contact_name,
+                        contactPhone: record.contact_phone,
+                        quantity: record.quantity,
+                        startDate: convertedStart,
+                        endDate: convertedEnd,
+                        actualEndDate: convertedActual,
+                        status: record.status,
+                        created: record.created,
+                        updated: record.updated
+                    };
+                    
+                    updateDebugInfo(`📝 最終物件 startDate: "${converted.startDate}"`);
+                    updateDebugInfo(`📝 最終物件 endDate: "${converted.endDate}"`);
+                    if (converted.actualEndDate) {
+                        updateDebugInfo(`📝 最終物件 actualEndDate: "${converted.actualEndDate}"`);
+                    }
+                    
+                    reservations.push(converted);
+                    updateDebugInfo(`✅ 成功加入預約: ${converted.unitName} ${converted.startDate} ~ ${converted.endDate}`);
+                }
+                
+                updateDebugInfo(`=== ✅ 資料載入完成，成功處理 ${reservations.length} 筆預約 ===`);
+                
+                renderCalendar();
+                updateLegend();
+                showReservationsList(); // 自動更新預約列表
+            } catch (error) {
+                console.error('Error loading reservations:', error);
+                updateDebugInfo(`❌ 載入資料失敗: ${error.message}`);
+                showNotification('載入資料失敗，請檢查伺服器連線', 'error');
+            }
+        }
+        
+        // 載入離線資料
+        function loadReservationsOffline() {
+            try {
+                const saved = localStorage.getItem('reservations');
+                reservations = saved ? JSON.parse(saved) : [];
+                updateDebugInfo(`離線模式載入了 ${reservations.length} 筆預約`);
+                renderCalendar();
+                updateLegend();
+            } catch (error) {
+                console.error('Error loading offline reservations:', error);
+                updateDebugInfo(`離線載入失敗: ${error.message}`);
+                reservations = [];
+            }
+        }
+
+        // 儲存離線資料
+        function saveReservationsOffline() {
+            try {
+                localStorage.setItem('reservations', JSON.stringify(reservations));
+                updateDebugInfo('離線資料已儲存');
+            } catch (error) {
+                console.error('Error saving offline reservations:', error);
+                updateDebugInfo(`離線儲存失敗: ${error.message}`);
+            }
+        }
+
+        // =================== 日曆功能 ===================
+        function getUnitColor(unitName) {
+            if (!unitColors[unitName]) {
+                unitColors[unitName] = colors[colorIndex % colors.length];
+                colorIndex++;
+            }
+            return unitColors[unitName];
+        }
+
+        function updateLegend() {
+            const legend = document.getElementById('legend');
+            legend.innerHTML = '<span style="font-weight: bold;">圖例：</span>';
+            
+            Object.entries(unitColors).forEach(([unit, color]) => {
+                const item = document.createElement('div');
+                item.className = 'legend-item';
+                item.innerHTML = `
+                    <div class="legend-color" style="background: ${color};"></div>
+                    <span>${unit}</span>
+                `;
+                legend.appendChild(item);
+            });
+        }
+
+        function initCalendar() {
+            renderCalendar();
+            updateLegend();
+        }
+
+        function renderCalendar() {
+            const calendar = document.getElementById('calendar');
+            const title = document.getElementById('calendar-title');
+            
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            
+            title.textContent = `${year}年 ${month + 1}月`;
+            
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const startDate = new Date(firstDay);
+            startDate.setDate(startDate.getDate() - firstDay.getDay());
+            
+            calendar.innerHTML = '';
+            
+            // 添加星期標題
+            const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+            weekdays.forEach(day => {
+                const dayHeader = document.createElement('div');
+                dayHeader.className = 'day-header';
+                dayHeader.textContent = day;
+                calendar.appendChild(dayHeader);
+            });
+            
+            // 渲染日期
+            for (let i = 0; i < 42; i++) {
+                const cellDate = new Date(startDate);
+                cellDate.setDate(startDate.getDate() + i);
+                
+                const dayCell = document.createElement('div');
+                dayCell.className = 'calendar-day';
+                
+                const dayNumber = document.createElement('div');
+                dayNumber.className = 'day-number';
+                dayNumber.textContent = cellDate.getDate();
+                dayCell.appendChild(dayNumber);
+                
+                // 檢查是否為當前月份
+                if (cellDate.getMonth() !== month) {
+                    dayCell.classList.add('other-month');
+                }
+                
+                // 檢查是否為週末
+                if (cellDate.getDay() === 0 || cellDate.getDay() === 6) {
+                    dayCell.classList.add('weekend');
+                }
+                
+                // 檢查預約狀況
+                const dateStr = formatDateToString(cellDate);
+                const reservation = getReservationForDate(dateStr);
+                
+                if (reservation) {
+                    dayCell.classList.add('occupied');
+                    dayCell.style.background = getUnitColor(reservation.unitName);
+                    
+                    const unitName = document.createElement('div');
+                    unitName.className = 'unit-name';
+                    unitName.textContent = reservation.unitName;
+                    dayCell.appendChild(unitName);
+                }
+                
+                dayCell.addEventListener('click', () => handleDateClick(dateStr, reservation));
+                calendar.appendChild(dayCell);
+            }
+            
+            updateDebugInfo(`日曆渲染完成: ${year}/${month + 1}`);
+        }
+
+        function getReservationForDate(dateStr) {
+            return reservations.find(reservation => {
+                if (reservation.status === 'cancelled') return false;
+                
+                const endDate = reservation.actualEndDate || reservation.endDate;
+                return isDateInRange(dateStr, reservation.startDate, endDate);
+            });
+        }
+
+        function handleDateClick(dateStr, reservation) {
+            if (reservation) {
+                showReservationDetails(reservation);
+            } else {
+                openReservationModal(dateStr);
+            }
+        }
+
+        // =================== 預約詳情顯示 ===================
+        function showReservationDetails(reservation) {
+            updateDebugInfo(`=== 📋 顯示預約詳情 ===`);
+            updateDebugInfo(`🔍 reservation 物件檢查:`);
+            updateDebugInfo(`  - id: ${reservation.id}`);
+            updateDebugInfo(`  - unitName: ${reservation.unitName}`);
+            updateDebugInfo(`  - startDate: "${reservation.startDate}" (類型: ${typeof reservation.startDate})`);
+            updateDebugInfo(`  - endDate: "${reservation.endDate}" (類型: ${typeof reservation.endDate})`);
+            updateDebugInfo(`  - actualEndDate: "${reservation.actualEndDate}" (類型: ${typeof reservation.actualEndDate})`);
+            
+            const startDate = reservation.startDate;
+            const endDate = reservation.endDate;
+            const actualEndDate = reservation.actualEndDate;
+            
+            const actualDays = calculateActualDays(startDate, actualEndDate || endDate);
+            updateDebugInfo(`📊 計算結果: ${actualDays} 天`);
+            
+            const displayStart = formatDateForDisplay(startDate);
+            const displayEnd = formatDateForDisplay(endDate);
+            const displayActual = actualEndDate ? formatDateForDisplay(actualEndDate) : '進行中';
+            
+            updateDebugInfo(`🎨 格式化顯示: ${displayStart} ~ ${displayEnd}, 實際: ${displayActual}`);
+            
+            if (confirm(`預約詳情：
+單位：${reservation.unitName}
+專案：${reservation.projectName}
+聯絡人：${reservation.contactName}
+電話：${reservation.contactPhone}
+數量：${reservation.quantity}
+預約期間：${displayStart} ~ ${displayEnd}
+實際結束：${displayActual}
+狀態：${getStatusText(reservation.status)}
+實際使用天數：${actualDays} 天
+
+是否要編輯此預約？`)) {
+                editReservation(reservation);
+            }
+        }
+
+        function getStatusText(status) {
+            const statusMap = {
+                'active': '進行中',
+                'completed': '已完成',
+                'cancelled': '已取消'
+            };
+            return statusMap[status] || status;
+        }
+
+        function editReservation(reservation) {
+            currentEditingId = reservation.id;
+            
+            document.getElementById('modal-title').textContent = '編輯預約';
+            document.getElementById('unitName').value = reservation.unitName;
+            document.getElementById('projectName').value = reservation.projectName;
+            document.getElementById('contactName').value = reservation.contactName;
+            document.getElementById('contactPhone').value = reservation.contactPhone;
+            document.getElementById('quantity').value = reservation.quantity;
+            document.getElementById('startDate').value = reservation.startDate;
+            document.getElementById('endDate').value = reservation.endDate;
+            document.getElementById('actualEndDate').value = reservation.actualEndDate || '';
+            document.getElementById('status').value = reservation.status || 'active';
+            
+            updateDebugInfo(`編輯預約 ${reservation.id}: ${reservation.startDate} ~ ${reservation.endDate}`);
+            document.getElementById('reservationModal').style.display = 'block';
+        }
+
+        function previousMonth() {
+            currentDate.setMonth(currentDate.getMonth() - 1);
+            renderCalendar();
+        }
+
+        function nextMonth() {
+            currentDate.setMonth(currentDate.getMonth() + 1);
+            renderCalendar();
+        }
+
+        function openReservationModal(selectedDate = null) {
+            currentEditingId = null;
+            document.getElementById('modal-title').textContent = '新增預約';
+            document.getElementById('reservationForm').reset();
+            
+            if (selectedDate) {
+                document.getElementById('startDate').value = selectedDate;
+                updateDebugInfo(`開啟新增預約視窗，預設日期: ${selectedDate}`);
+            }
+            
+            document.getElementById('reservationModal').style.display = 'block';
+        }
+
+        function openExportModal() {
+            document.getElementById('exportModal').style.display = 'block';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        // =================== 預約表單處理 ===================
+        document.getElementById('reservationForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = {
+                unitName: document.getElementById('unitName').value,
+                projectName: document.getElementById('projectName').value,
+                contactName: document.getElementById('contactName').value,
+                contactPhone: document.getElementById('contactPhone').value,
+                quantity: parseInt(document.getElementById('quantity').value),
+                startDate: document.getElementById('startDate').value,
+                endDate: document.getElementById('endDate').value,
+                actualEndDate: document.getElementById('actualEndDate').value || null,
+                status: document.getElementById('status').value || 'active'
+            };
+            
+            updateDebugInfo(`提交預約表單: ${formData.unitName} ${formData.startDate} ~ ${formData.endDate}`);
+            
+            // 檢查日期衝突
+            if (!currentEditingId && hasDateConflict(formData.startDate, formData.endDate)) {
+                showNotification('選擇的日期已被預約！', 'error');
+                return;
+            }
+            
+            setSubmitLoading(true);
+            
+            try {
+                if (currentEditingId) {
+                    // 更新現有預約
+                    if (offlineMode) {
+                        const index = reservations.findIndex(r => r.id === currentEditingId);
+                        if (index !== -1) {
+                            reservations[index] = { ...reservations[index], ...formData };
+                        }
+                        saveReservationsOffline();
+                        updateDebugInfo(`離線更新預約 ${currentEditingId}`);
+                    } else {
+                        const data = {
+                            unit_name: formData.unitName,
+                            project_name: formData.projectName,
+                            contact_name: formData.contactName,
+                            contact_phone: formData.contactPhone,
+                            quantity: formData.quantity,
+                            start_date: frontendDateToPocketBase(formData.startDate),
+                            end_date: frontendDateToPocketBase(formData.endDate),
+                            actual_end_date: formData.actualEndDate ? frontendDateToPocketBase(formData.actualEndDate) : null,
+                            status: formData.status
+                        };
+                        
+                        updateDebugInfo(`更新預約到資料庫: ${data.start_date} ~ ${data.end_date}`);
+                        await pb.collection('reservations').update(currentEditingId, data);
+                        await loadReservations();
+                    }
+                    showNotification('預約已更新！');
+                } else {
+                    // 新增預約
+                    if (offlineMode) {
+                        formData.id = Date.now().toString();
+                        formData.created = new Date().toISOString();
+                        reservations.push(formData);
+                        saveReservationsOffline();
+                        updateDebugInfo(`離線新增預約: ${formData.unitName}`);
+                    } else {
+                        const data = {
+                            unit_name: formData.unitName,
+                            project_name: formData.projectName,
+                            contact_name: formData.contactName,
+                            contact_phone: formData.contactPhone,
+                            quantity: formData.quantity,
+                            start_date: frontendDateToPocketBase(formData.startDate),
+                            end_date: frontendDateToPocketBase(formData.endDate),
+                            actual_end_date: formData.actualEndDate ? frontendDateToPocketBase(formData.actualEndDate) : null,
+                            status: formData.status
+                        };
+                        
+                        updateDebugInfo(`新增預約到資料庫: ${data.start_date} ~ ${data.end_date}`);
+                        await pb.collection('reservations').create(data);
+                        await loadReservations();
+                    }
+                    showNotification('預約已建立！');
+                }
+                
+                renderCalendar();
+                closeModal('reservationModal');
+            } catch (error) {
+                console.error('Error saving reservation:', error);
+                updateDebugInfo(`儲存預約失敗: ${error.message}`);
+                showNotification('儲存失敗：' + (error.message || '未知錯誤'), 'error');
+            } finally {
+                setSubmitLoading(false);
+            }
+        });
+
+        function setSubmitLoading(loading) {
+            const btnText = document.getElementById('submitBtnText');
+            const loader = document.getElementById('submitLoader');
+            
+            if (loading) {
+                btnText.classList.add('hidden');
+                loader.classList.remove('hidden');
+            } else {
+                btnText.classList.remove('hidden');
+                loader.classList.add('hidden');
+            }
+        }
+
+        function hasDateConflict(startDate, endDate) {
+            return reservations.some(reservation => {
+                if (currentEditingId && reservation.id === currentEditingId) return false;
+                if (reservation.status === 'cancelled') return false;
+                
+                const resEndDate = reservation.actualEndDate || reservation.endDate;
+                
+                // 檢查是否有重疊
+                return compareDates(startDate, resEndDate) <= 0 && compareDates(endDate, reservation.startDate) >= 0;
+            });
+        }
+
+        // =================== 預約列表 ===================
+        function showReservationsList() {
+            const list = document.getElementById('reservationsList');
+            list.innerHTML = '';
+            
+            const sortedReservations = [...reservations].sort((a, b) => compareDates(a.startDate, b.startDate));
+            
+            updateDebugInfo(`顯示預約列表: ${sortedReservations.length} 筆預約`);
+            
+            if (sortedReservations.length === 0) {
+                updateDebugInfo(`⚠️ 無預約資料可顯示`);
+                list.innerHTML = '<p>無預約資料</p>';
+                document.getElementById('reservationsListModal').style.display = 'block';
+                return;
+            }
+            
+            sortedReservations.forEach((reservation, index) => {
+                const item = document.createElement('div');
+                item.className = 'reservation-item';
+                
+                const startDate = reservation.startDate;
+                const endDate = reservation.endDate;
+                const actualEndDate = reservation.actualEndDate;
+                
+                const actualDays = calculateActualDays(startDate, actualEndDate || endDate);
+                updateDebugInfo(`列表項目 ${index + 1}: ${reservation.unitName} ${startDate} ~ ${endDate}, 實際天數: ${actualDays}`);
+                
+                item.innerHTML = `
+                    <div class="reservation-actions">
+                        <button class="btn btn-primary btn-small" onclick="editReservationFromList('${reservation.id}')">編輯</button>
+                        <button class="btn btn-secondary btn-small" onclick="deleteReservation('${reservation.id}')">刪除</button>
+                    </div>
+                    <strong>${reservation.unitName}</strong> - ${reservation.projectName}<br>
+                    聯絡人：${reservation.contactName} (${reservation.contactPhone})<br>
+                    數量：${reservation.quantity}<br>
+                    預約期間：${formatDateForDisplay(startDate)} ~ ${formatDateForDisplay(endDate)}<br>
+                    實際結束：${actualEndDate ? formatDateForDisplay(actualEndDate) : '進行中'}<br>
+                    狀態：${getStatusText(reservation.status)}<br>
+                    實際使用天數：${actualDays} 天
+                `;
+                
+                list.appendChild(item);
+            });
+            
+            document.getElementById('reservationsListModal').style.display = 'block';
+        }
+
+        function editReservationFromList(id) {
+            const reservation = reservations.find(r => r.id === id);
+            if (reservation) {
+                closeModal('reservationsListModal');
+                editReservation(reservation);
+            }
+        }
+
+        async function deleteReservation(id) {
+            if (!confirm('確定要刪除此預約嗎？')) return;
+            
+            try {
+                if (offlineMode) {
+                    reservations = reservations.filter(r => r.id !== id);
+                    saveReservationsOffline();
+                    updateDebugInfo(`離線刪除預約 ${id}`);
+                } else {
+                    await pb.collection('reservations').delete(id);
+                    updateDebugInfo(`從資料庫刪除預約 ${id}`);
+                    await loadReservations();
+                }
+                
+                renderCalendar();
+                showReservationsList();
+                showNotification('預約已刪除！');
+            } catch (error) {
+                console.error('Error deleting reservation:', error);
+                updateDebugInfo(`刪除預約失敗: ${error.message}`);
+                showNotification('刪除失敗：' + (error.message || '未知錯誤'), 'error');
+            }
+        }
+
+        // =================== 工具函數 ===================
+        function calculateActualDays(startDate, endDate) {
+            if (!startDate || !endDate) {
+                updateDebugInfo(`calculateActualDays: 日期參數為空 - start: ${startDate}, end: ${endDate}`);
+                return 0;
+            }
+            
+            updateDebugInfo(`🧮 計算實際天數: "${startDate}" ~ "${endDate}"`);
+            
+            const start = createLocalDate(startDate);
+            const end = createLocalDate(endDate);
+            
+            if (!start || !end || start > end) {
+                updateDebugInfo(`❌ 日期無效或起始日期晚於結束日期`);
+                return 0;
+            }
+            
+            let days = 0;
+            let currentDate = new Date(start);
+            
+            while (currentDate <= end) {
+                if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) { // 排除週末
+                    days++;
+                }
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+            
+            updateDebugInfo(`✅ 計算結果: ${days} 天 (${startDate} ~ ${endDate})`);
+            return days;
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        // =================== 匯出功能 ===================
+        function exportToCSV(useModal = false) {
+            const startDateInput = useModal ? 'modal-export-start-date' : 'export-start-date';
+            const endDateInput = useModal ? 'modal-export-end-date' : 'export-end-date';
+            
+            const startDate = document.getElementById(startDateInput).value;
+            const endDate = document.getElementById(endDateInput).value;
+            
+            if (!startDate || !endDate) {
+                showNotification('請選擇起訖日期！', 'error');
+                return;
+            }
+            
+            updateDebugInfo(`匯出 CSV: ${startDate} ~ ${endDate}`);
+            
+            const filteredReservations = reservations.filter(reservation => {
+                const resEndDate = reservation.actualEndDate || reservation.endDate;
+                
+                // 檢查預約期間是否與篩選期間有重疊
+                return compareDates(reservation.startDate, endDate) <= 0 && compareDates(resEndDate, startDate) >= 0;
+            });
+            
+            const csvData = [];
+            csvData.push(['單位名稱', '專案名稱', '統計期間數量總計', '統計期間實際使用天數']);
+            
+            const summary = {};
+            filteredReservations.forEach(reservation => {
+                const key = `${reservation.unitName}-${reservation.projectName}`;
+                if (!summary[key]) {
+                    summary[key] = {
+                        unitName: reservation.unitName,
+                        projectName: reservation.projectName,
+                        totalQuantity: 0,
+                        totalDays: 0
+                    };
+                }
+                
+                summary[key].totalQuantity += reservation.quantity;
+                
+                // 計算重疊期間的天數
+                const overlapStart = compareDates(reservation.startDate, startDate) >= 0 ? reservation.startDate : startDate;
+                const overlapEnd = compareDates(reservation.actualEndDate || reservation.endDate, endDate) <= 0 ? 
+                    (reservation.actualEndDate || reservation.endDate) : endDate;
+                
+                if (compareDates(overlapStart, overlapEnd) <= 0) {
+                    const days = calculateActualDays(overlapStart, overlapEnd);
+                    summary[key].totalDays += days;
+                    updateDebugInfo(`CSV 計算: ${reservation.unitName} ${overlapStart} ~ ${overlapEnd} = ${days} 天`);
+                }
+            });
+            
+            Object.values(summary).forEach(item => {
+                csvData.push([item.unitName, item.projectName, item.totalQuantity, item.totalDays]);
+            });
+            
+            // 轉換為 CSV 格式
+            const csvContent = csvData.map(row => row.join(',')).join('\n');
+            
+            // 下載檔案
+            const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            if (link.download !== undefined) {
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', `軟體租借統計_${startDate}_${endDate}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+            
+            if (useModal) {
+                closeModal('exportModal');
+            }
+            
+            updateDebugInfo(`CSV 匯出完成: ${Object.keys(summary).length} 項目`);
+            showNotification('CSV 檔案已匯出！');
+        }
+
+        // =================== 診斷功能 ===================
+        async function runDiagnostics() {
+            console.log('=== 開始系統診斷 ===');
+            updateDebugInfo('🔧 開始系統診斷');
+            
+            try {
+                // 1. 測試基本連線
+                console.log('1. 測試 PocketBase 基本連線...');
+                const response = await fetch('http://192.168.200.132:8090/api/health');
+                if (response.ok) {
+                    console.log('✅ PocketBase 連線正常');
+                    updateDebugInfo('✅ PocketBase 連線正常');
+                } else {
+                    console.log('❌ PocketBase 連線異常', response.status);
+                    updateDebugInfo(`❌ PocketBase 連線異常: ${response.status}`);
+                }
+                
+                // 2. 時區轉換測試
+                console.log('2. 時區轉換測試...');
+                const testDate = '2024-01-15';
+                const toPB = frontendDateToPocketBase(testDate);
+                const fromPB = pocketBaseToFrontendDate(toPB);
+                console.log(`測試日期: ${testDate} → PB: ${toPB} → 前端: ${fromPB}`);
+                updateDebugInfo(`🧪 時區轉換測試: ${testDate} → ${toPB} → ${fromPB}`);
+                
+                // 3. 檢查現有資料的轉換
+                if (reservations.length > 0) {
+                    console.log('3. 檢查現有預約資料...');
+                    reservations.slice(0, 3).forEach((res, index) => {
+                        console.log(`預約 ${index + 1}: ${res.unitName} ${res.startDate} ~ ${res.endDate}`);
+                        updateDebugInfo(`📋 預約 ${index + 1}: ${res.unitName} ${res.startDate} ~ ${res.endDate}`);
+                    });
+                }
+                
+                // 4. 日曆顯示測試
+                console.log('4. 日曆顯示測試...');
+                const today = formatDateToString(new Date());
+                console.log(`今天日期: ${today}`);
+                updateDebugInfo(`📅 今天日期: ${today}`);
+                
+                // 5. 天數計算測試
+                console.log('5. 天數計算測試...');
+                if (reservations.length > 0) {
+                    const testRes = reservations[0];
+                    const days = calculateActualDays(testRes.startDate, testRes.actualEndDate || testRes.endDate);
+                    console.log(`測試天數計算: ${testRes.startDate} ~ ${testRes.actualEndDate || testRes.endDate} = ${days} 天`);
+                    updateDebugInfo(`🧮 測試天數計算: ${testRes.startDate} ~ ${testRes.actualEndDate || testRes.endDate} = ${days} 天`);
+                }
+                
+                alert('診斷完成！請查看控制台和除錯資訊獲得詳細資訊。');
+                
+            } catch (error) {
+                console.error('診斷過程發生錯誤:', error);
+                updateDebugInfo(`❌ 診斷錯誤: ${error.message}`);
+                alert('診斷失敗：' + error.message);
+            }
+            
+            console.log('=== 診斷結束 ===');
+        }
+    </script>
+</body>
+</html>
