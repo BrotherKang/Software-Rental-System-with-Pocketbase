@@ -1532,7 +1532,7 @@
             }, 3000);
         }
 
-        // =================== 匯出功能 ===================
+        // =================== 匯出功能（加強版：同時產出 簡單版 + 完整版（含期間數量）） ===================
         function exportToCSV(useModal = false) {
             const startDateInput = useModal ? 'modal-export-start-date' : 'export-start-date';
             const endDateInput = useModal ? 'modal-export-end-date' : 'export-end-date';
@@ -1549,66 +1549,91 @@
             
             const filteredReservations = reservations.filter(reservation => {
                 const resEndDate = reservation.actualEndDate || reservation.endDate;
-                
-                // 檢查預約期間是否與篩選期間有重疊
                 return compareDates(reservation.startDate, endDate) <= 0 && compareDates(resEndDate, startDate) >= 0;
             });
             
-            const csvData = [];
-            csvData.push(['單位名稱', '專案名稱', '統計期間數量總計', '統計期間實際使用天數']);
+            // =================== 1. 簡單版（總計） ===================
+            const summaryCsvData = [];
+            summaryCsvData.push(['單位名稱', '專案名稱', '統計期間數量總計', '統計期間實際使用天數']);
             
             const summary = {};
             filteredReservations.forEach(reservation => {
                 const key = `${reservation.unitName}-${reservation.projectName}`;
                 if (!summary[key]) {
-                    summary[key] = {
-                        unitName: reservation.unitName,
-                        projectName: reservation.projectName,
-                        totalQuantity: 0,
-                        totalDays: 0
-                    };
+                    summary[key] = { unitName: reservation.unitName, projectName: reservation.projectName, totalQuantity: 0, totalDays: 0 };
                 }
                 
-                summary[key].totalQuantity += reservation.quantity;
-                
-                // 計算重疊期間的天數
+                // 計算重疊期間的天數與數量
                 const overlapStart = compareDates(reservation.startDate, startDate) >= 0 ? reservation.startDate : startDate;
                 const overlapEnd = compareDates(reservation.actualEndDate || reservation.endDate, endDate) <= 0 ? 
                     (reservation.actualEndDate || reservation.endDate) : endDate;
                 
                 if (compareDates(overlapStart, overlapEnd) <= 0) {
                     const days = calculateActualDays(overlapStart, overlapEnd);
+                    summary[key].totalQuantity += reservation.quantity;
                     summary[key].totalDays += days;
-                    updateDebugInfo(`CSV 計算: ${reservation.unitName} ${overlapStart} ~ ${overlapEnd} = ${days} 天`);
                 }
             });
             
             Object.values(summary).forEach(item => {
-                csvData.push([item.unitName, item.projectName, item.totalQuantity, item.totalDays]);
+                summaryCsvData.push([item.unitName, item.projectName, item.totalQuantity, item.totalDays]);
             });
             
-            // 轉換為 CSV 格式
-            const csvContent = csvData.map(row => row.join(',')).join('\n');
+            const summaryCsvContent = summaryCsvData.map(row => row.join(',')).join('\n');
             
-            // 下載檔案
-            const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            if (link.download !== undefined) {
-                const url = URL.createObjectURL(blob);
-                link.setAttribute('href', url);
-                link.setAttribute('download', `軟體租借統計_${startDate}_${endDate}.csv`);
-                link.style.visibility = 'hidden';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            }
+            // =================== 2. 完整版（逐筆明細 + 期間數量） ===================
+            const detailedCsvData = [];
+            detailedCsvData.push([
+                '單位名稱', '專案名稱', '姓名', '連絡電話',
+                '統計期間數量', '統計期間預約開始日期', '統計期間實際結束日期', '統計期間實際使用天數'
+            ]);
             
-            if (useModal) {
-                closeModal('exportModal');
-            }
+            filteredReservations.forEach(reservation => {
+                // 計算與匯出期間的重疊範圍
+                const overlapStart = compareDates(reservation.startDate, startDate) >= 0 ? reservation.startDate : startDate;
+                const overlapEnd = compareDates(reservation.actualEndDate || reservation.endDate, endDate) <= 0 ? 
+                    (reservation.actualEndDate || reservation.endDate) : endDate;
+                
+                const actualDays = compareDates(overlapStart, overlapEnd) <= 0 ? calculateActualDays(overlapStart, overlapEnd) : 0;
+                
+                detailedCsvData.push([
+                    reservation.unitName,
+                    reservation.projectName,
+                    reservation.contactName,
+                    reservation.contactPhone,
+                    reservation.quantity,                    // 這筆預約的數量（統計期間內貢獻的數量）
+                    formatDateForDisplay(overlapStart),
+                    formatDateForDisplay(overlapEnd),
+                    actualDays
+                ]);
+            });
             
-            updateDebugInfo(`CSV 匯出完成: ${Object.keys(summary).length} 項目`);
-            showNotification('CSV 檔案已匯出！');
+            const detailedCsvContent = detailedCsvData.map(row => row.join(',')).join('\n');
+            
+            // =================== 下載兩個檔案 ===================
+            // 簡單版
+            const summaryBlob = new Blob(['\ufeff' + summaryCsvContent], { type: 'text/csv;charset=utf-8;' });
+            const summaryLink = document.createElement('a');
+            summaryLink.href = URL.createObjectURL(summaryBlob);
+            summaryLink.download = `租借統計_總計_${startDate}_${endDate}.csv`;
+            summaryLink.style.display = 'none';
+            document.body.appendChild(summaryLink);
+            summaryLink.click();
+            document.body.removeChild(summaryLink);
+            
+            // 完整版
+            const detailedBlob = new Blob(['\ufeff' + detailedCsvContent], { type: 'text/csv;charset=utf-8;' });
+            const detailedLink = document.createElement('a');
+            detailedLink.href = URL.createObjectURL(detailedBlob);
+            detailedLink.download = `租借統計_完整明細_${startDate}_${endDate}.csv`;
+            detailedLink.style.display = 'none';
+            document.body.appendChild(detailedLink);
+            detailedLink.click();
+            document.body.removeChild(detailedLink);
+            
+            if (useModal) closeModal('exportModal');
+            
+            showNotification('已匯出「總計版」與「完整明細版」兩個 CSV 檔案！', 'success');
         }
 
         // =================== 診斷功能 ===================
