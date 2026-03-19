@@ -28,4 +28,7 @@ Collection: `reservations`
 |  actual_end_date | Date | 否 | 實際結束日期  |
 |  status | Select | 是 | 狀態 (active, completed, cancelled)  |
 
-4.記得把HTML裡面的IP修改成自己的就可以了
+4.記得把 index.html 裡面的 IP 修改成自己的 IP 或是 URL
+5.利用 python 啟動簡易網頁伺服器`python -m http.server`
+
+
